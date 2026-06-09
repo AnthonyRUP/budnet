@@ -1,0 +1,10 @@
+{
+  "extends": "@budnet/config/typescript/react",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "moduleResolution": "Bundler",
+    "declaration": false,
+    "declarationMap": false
+  },
+  "include": ["src"]
+}

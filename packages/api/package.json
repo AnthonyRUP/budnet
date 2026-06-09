@@ -1,0 +1,20 @@
+{
+  "name": "@budnet/api",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@budnet/types": "workspace:*",
+    "@trpc/client": "^11.0.0",
+    "@trpc/react-query": "^11.0.0",
+    "@tanstack/react-query": "^5.0.0"
+  },
+  "devDependencies": {
+    "@budnet/server": "workspace:*",
+    "typescript": "^5.4.0"
+  }
+}

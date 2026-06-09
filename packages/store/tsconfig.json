@@ -1,0 +1,7 @@
+{
+  "extends": "@budnet/config/typescript/base",
+  "compilerOptions": {
+    "rootDir": "./src"
+  },
+  "include": ["src"]
+}
