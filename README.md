@@ -76,7 +76,7 @@ RESEND_API_KEY=
 ### 4. Push the database schema
 
 ```bash
-pnpm --filter @budnet/server exec drizzle-kit push
+pnpm db:push
 ```
 
 This creates all tables in the `budnet` database. Re-run this whenever the schema changes.
@@ -136,6 +136,7 @@ server/       Fastify + tRPC + Socket.io + Drizzle
 
 | Command | Description |
 |---------|-------------|
+| `pnpm db:push` | Push schema changes to the database |
 | `pnpm dev:server` | Start backend server |
 | `pnpm dev:web` | Start web frontend |
 | `pnpm dev:desktop` | Start Electron desktop app |

@@ -10,6 +10,7 @@
     "dev:server": "turbo run dev --filter=@budnet/server",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
+    "db:push": "turbo run db:push --filter=@budnet/server",
     "clean": "turbo run clean"
   },
   "devDependencies": {
