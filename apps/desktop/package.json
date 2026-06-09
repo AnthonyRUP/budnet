@@ -1,0 +1,32 @@
+{
+  "name": "@budnet/desktop",
+  "version": "0.0.1",
+  "private": true,
+  "main": "dist/main.js",
+  "scripts": {
+    "dev": "concurrently \"tsc -w\" \"electron .\"",
+    "build": "tsc && electron-builder",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "electron": "^29.0.0"
+  },
+  "devDependencies": {
+    "@budnet/config": "workspace:*",
+    "@types/node": "^20.0.0",
+    "concurrently": "^8.2.0",
+    "electron-builder": "^24.13.0",
+    "typescript": "^5.4.0"
+  },
+  "build": {
+    "appId": "com.budnet.desktop",
+    "productName": "budnet",
+    "directories": { "output": "out" },
+    "files": ["dist/**/*"],
+    "mac": { "category": "public.app-category.productivity" },
+    "win": { "target": "nsis" },
+    "linux": { "target": "AppImage" }
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "name": "budnet",
+    "slug": "budnet",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "budnet",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1a2a6c"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.budnet.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#1a2a6c"
+      },
+      "package": "com.budnet.app"
+    },
+    "plugins": ["expo-router"],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

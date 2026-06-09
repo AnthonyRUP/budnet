@@ -1,0 +1,39 @@
+{
+  "name": "@budnet/server",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    "./router": "./src/router.ts"
+  },
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@budnet/types": "workspace:*",
+    "@trpc/server": "^11.0.0",
+    "better-auth": "^1.0.0",
+    "drizzle-orm": "^0.45.0",
+    "fastify": "^4.26.0",
+    "@fastify/cors": "^9.0.0",
+    "@fastify/websocket": "^8.3.0",
+    "ioredis": "^5.3.0",
+    "pg": "^8.11.0",
+    "resend": "^4.0.0",
+    "socket.io": "^4.7.0",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@budnet/config": "workspace:*",
+    "@types/node": "^20.0.0",
+    "@types/pg": "^8.11.0",
+    "drizzle-kit": "^0.31.4",
+    "tsx": "~4.8.0",
+    "typescript": "^5.4.0"
+  }
+}
