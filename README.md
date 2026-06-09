@@ -34,7 +34,7 @@ Active development — core messaging works (auth, workspaces, channels, real-ti
 ### 1. Clone and install dependencies
 
 ```bash
-git clone https://github.com/your-org/budnet.git
+git clone https://github.com/AnthonyRUP/budnet.git
 cd budnet
 pnpm install
 ```

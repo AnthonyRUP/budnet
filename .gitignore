@@ -8,3 +8,5 @@ build/
 .DS_Store
 out/
 .expo/
+/packages
+pnpm-lock.yaml
