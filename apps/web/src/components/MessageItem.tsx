@@ -79,7 +79,7 @@ export function MessageItem({ message, currentUserId, onInvalidate }: Props) {
     <div
       className="relative flex gap-3 px-4 py-1 hover:bg-gray-50 group"
       onMouseEnter={() => setHovering(true)}
-      onMouseLeave={() => { setHovering(false); setConfirmDelete(false); }}
+      onMouseLeave={() => setHovering(false)}
     >
       {/* Avatar */}
       <div className="w-9 h-9 rounded-full bg-brand-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 mt-0.5 overflow-hidden">
