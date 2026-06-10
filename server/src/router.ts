@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { eq, and, desc, lt } from "drizzle-orm";
+import { TRPCError } from "@trpc/server";
 import { router, protectedProcedure } from "./trpc";
 import { db, schema } from "./db";
 import { getIO } from "./socket";
@@ -122,6 +123,39 @@ const channelRouter = router({
         userId: ctx.userId,
       });
 
+      return channel;
+    }),
+
+  update: protectedProcedure
+    .input(z.object({
+      channelId: z.string(),
+      name: z.string().min(1).optional(),
+      description: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const updates: Record<string, unknown> = {};
+      if (input.name) updates.name = input.name;
+      if (input.description !== undefined) updates.description = input.description;
+
+      const [channel] = await db
+        .update(schema.channels)
+        .set(updates)
+        .where(and(eq(schema.channels.id, input.channelId), eq(schema.channels.createdBy, ctx.userId)))
+        .returning();
+
+      if (!channel) throw new TRPCError({ code: "FORBIDDEN", message: "Channel not found or insufficient permissions" });
+      return channel;
+    }),
+
+  delete: protectedProcedure
+    .input(z.object({ channelId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const [channel] = await db
+        .delete(schema.channels)
+        .where(and(eq(schema.channels.id, input.channelId), eq(schema.channels.createdBy, ctx.userId)))
+        .returning();
+
+      if (!channel) throw new TRPCError({ code: "FORBIDDEN", message: "Channel not found or insufficient permissions" });
       return channel;
     }),
 });

@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useWorkspaceStore } from "@budnet/store";
 import { authClient } from "../lib/auth-client";
+import { CreateChannelModal } from "./CreateChannelModal";
 
 function ProfileBar() {
   const { data: session } = authClient.useSession();
@@ -91,6 +92,7 @@ function ProfileBar() {
 
 export function Sidebar() {
   const { activeWorkspace, channels } = useWorkspaceStore();
+  const [showCreateChannel, setShowCreateChannel] = useState(false);
 
   return (
     <aside className="w-60 bg-brand-900 text-white flex flex-col">
@@ -99,7 +101,18 @@ export function Sidebar() {
       </div>
       <nav className="flex-1 overflow-y-auto py-2">
         <div className="px-3 py-1">
-          <p className="text-xs font-semibold text-white/40 uppercase tracking-wider mb-1">Channels</p>
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-xs font-semibold text-white/40 uppercase tracking-wider">Channels</p>
+            <button
+              onClick={() => setShowCreateChannel(true)}
+              title="Create channel"
+              className="w-5 h-5 flex items-center justify-center rounded hover:bg-white/10 text-white/40 hover:text-white transition-colors"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+              </svg>
+            </button>
+          </div>
           {channels.map((ch) => (
             <NavLink
               key={ch.id}
@@ -114,6 +127,7 @@ export function Sidebar() {
         </div>
       </nav>
       <ProfileBar />
+      {showCreateChannel && <CreateChannelModal onClose={() => setShowCreateChannel(false)} />}
     </aside>
   );
 }
