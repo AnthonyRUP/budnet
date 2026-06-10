@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, boolean, uuid, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, boolean, uuid, pgEnum, integer } from "drizzle-orm/pg-core";
 
 // ─── Better Auth tables ───────────────────────────────────────────────────────
 
@@ -81,6 +81,17 @@ export const channelMembers = pgTable("channel_members", {
   channelId: uuid("channel_id").notNull().references(() => channels.id, { onDelete: "cascade" }),
   userId: text("user_id").notNull().references(() => baUser.id, { onDelete: "cascade" }),
   joinedAt: timestamp("joined_at").defaultNow().notNull(),
+});
+
+export const invites = pgTable("invites", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  token: text("token").notNull().unique(),
+  createdBy: text("created_by").notNull().references(() => baUser.id),
+  expiresAt: timestamp("expires_at"),
+  maxUses: integer("max_uses"),
+  useCount: integer("use_count").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const messages = pgTable("messages", {

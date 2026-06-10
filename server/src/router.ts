@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { eq, and, desc, lt } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
-import { router, protectedProcedure } from "./trpc";
+import { router, publicProcedure, protectedProcedure } from "./trpc";
 import { db, schema } from "./db";
 import { getIO } from "./socket";
 
@@ -217,11 +217,128 @@ const messageRouter = router({
     }),
 });
 
+const inviteRouter = router({
+  create: protectedProcedure
+    .input(z.object({
+      workspaceId: z.string(),
+      expiresInDays: z.number().optional(),
+      maxUses: z.number().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const token = crypto.randomUUID().replace(/-/g, "").slice(0, 20);
+      const expiresAt = input.expiresInDays
+        ? new Date(Date.now() + input.expiresInDays * 24 * 60 * 60 * 1000)
+        : undefined;
+
+      const [invite] = await db
+        .insert(schema.invites)
+        .values({
+          workspaceId: input.workspaceId,
+          token,
+          createdBy: ctx.userId,
+          expiresAt,
+          maxUses: input.maxUses,
+        })
+        .returning();
+
+      return invite;
+    }),
+
+  get: publicProcedure
+    .input(z.object({ token: z.string() }))
+    .query(async ({ input }) => {
+      const [invite] = await db
+        .select()
+        .from(schema.invites)
+        .where(eq(schema.invites.token, input.token))
+        .limit(1);
+
+      if (!invite) return null;
+
+      const [workspace] = await db
+        .select()
+        .from(schema.workspaces)
+        .where(eq(schema.workspaces.id, invite.workspaceId))
+        .limit(1);
+
+      const [creator] = await db
+        .select({ name: schema.baUser.name })
+        .from(schema.baUser)
+        .where(eq(schema.baUser.id, invite.createdBy))
+        .limit(1);
+
+      const isExpired = !!invite.expiresAt && invite.expiresAt < new Date();
+      const isExhausted = !!invite.maxUses && invite.useCount >= invite.maxUses;
+
+      return {
+        workspace: workspace ?? null,
+        creatorName: creator?.name ?? null,
+        isExpired,
+        isExhausted,
+        valid: !!workspace && !isExpired && !isExhausted,
+      };
+    }),
+
+  accept: protectedProcedure
+    .input(z.object({ token: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const [invite] = await db
+        .select()
+        .from(schema.invites)
+        .where(eq(schema.invites.token, input.token))
+        .limit(1);
+
+      if (!invite) throw new TRPCError({ code: "NOT_FOUND", message: "Invite not found" });
+      if (invite.expiresAt && invite.expiresAt < new Date()) throw new TRPCError({ code: "BAD_REQUEST", message: "Invite has expired" });
+      if (invite.maxUses && invite.useCount >= invite.maxUses) throw new TRPCError({ code: "BAD_REQUEST", message: "Invite link has reached its use limit" });
+
+      // Already a member — just return the workspace
+      const [existing] = await db
+        .select()
+        .from(schema.workspaceMembers)
+        .where(and(eq(schema.workspaceMembers.workspaceId, invite.workspaceId), eq(schema.workspaceMembers.userId, ctx.userId)))
+        .limit(1);
+
+      const [workspace] = await db
+        .select()
+        .from(schema.workspaces)
+        .where(eq(schema.workspaces.id, invite.workspaceId))
+        .limit(1);
+
+      if (existing) return { workspace, alreadyMember: true };
+
+      await db.insert(schema.workspaceMembers).values({
+        workspaceId: invite.workspaceId,
+        userId: ctx.userId,
+        role: "member",
+      });
+
+      await db.update(schema.invites)
+        .set({ useCount: invite.useCount + 1 })
+        .where(eq(schema.invites.id, invite.id));
+
+      // Auto-join all public channels in the workspace
+      const publicChannels = await db
+        .select()
+        .from(schema.channels)
+        .where(and(eq(schema.channels.workspaceId, invite.workspaceId), eq(schema.channels.isPrivate, false)));
+
+      for (const ch of publicChannels) {
+        await db.insert(schema.channelMembers)
+          .values({ channelId: ch.id, userId: ctx.userId })
+          .onConflictDoNothing();
+      }
+
+      return { workspace, alreadyMember: false };
+    }),
+});
+
 export const appRouter = router({
   auth: authRouter,
   workspace: workspaceRouter,
   channel: channelRouter,
   message: messageRouter,
+  invite: inviteRouter,
 });
 
 export type AppRouter = typeof appRouter;

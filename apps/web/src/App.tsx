@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { AppLayout } from "./layouts/AppLayout";
 import { ChannelView } from "./views/ChannelView";
 import { LoginView } from "./views/LoginView";
+import { InviteView } from "./views/InviteView";
 import { authClient } from "./lib/auth-client";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -16,6 +17,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginView />} />
+      <Route path="/invite/:token" element={<InviteView />} />
       <Route
         path="/app"
         element={

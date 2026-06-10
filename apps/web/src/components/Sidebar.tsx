@@ -3,6 +3,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { useWorkspaceStore } from "@budnet/store";
 import { authClient } from "../lib/auth-client";
 import { CreateChannelModal } from "./CreateChannelModal";
+import { InviteModal } from "./InviteModal";
 
 function ProfileBar() {
   const { data: session } = authClient.useSession();
@@ -93,11 +94,21 @@ function ProfileBar() {
 export function Sidebar() {
   const { activeWorkspace, channels } = useWorkspaceStore();
   const [showCreateChannel, setShowCreateChannel] = useState(false);
+  const [showInvite, setShowInvite] = useState(false);
 
   return (
     <aside className="w-60 bg-brand-900 text-white flex flex-col">
-      <div className="px-4 py-3 border-b border-white/10">
+      <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between gap-2">
         <h1 className="font-bold text-lg truncate">{activeWorkspace?.name ?? "budnet"}</h1>
+        <button
+          onClick={() => setShowInvite(true)}
+          title="Invite people"
+          className="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 text-white/50 hover:text-white transition-colors flex-shrink-0"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+          </svg>
+        </button>
       </div>
       <nav className="flex-1 overflow-y-auto py-2">
         <div className="px-3 py-1">
@@ -128,6 +139,7 @@ export function Sidebar() {
       </nav>
       <ProfileBar />
       {showCreateChannel && <CreateChannelModal onClose={() => setShowCreateChannel(false)} />}
+      {showInvite && <InviteModal onClose={() => setShowInvite(false)} />}
     </aside>
   );
 }
