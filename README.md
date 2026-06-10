@@ -153,15 +153,16 @@ server/       Fastify + tRPC + Socket.io + Drizzle
 - [x] Real-time messaging via Socket.io
 - [x] Sign out
 - [x] Create / manage channels
+- [x] Invite links (shareable workspace invites with auto-join)
+- [x] User profiles (edit display name, email-prefix default)
 - [ ] Direct messages (1:1 and group)
-- [ ] Invite links
 - [ ] Edit / delete messages
 - [ ] Emoji reactions
 - [ ] Message threads
 - [ ] File and image uploads
+- [ ] Avatar uploads
 - [ ] @mention notifications
 - [ ] Full-text message search
-- [ ] User profiles and avatars
 - [ ] Presence indicators
 - [ ] Mobile (iOS / Android) parity
 - [ ] Desktop (Electron) parity
