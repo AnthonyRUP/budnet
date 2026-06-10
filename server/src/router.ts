@@ -240,6 +240,42 @@ const messageRouter = router({
 
       return message;
     }),
+
+  update: protectedProcedure
+    .input(z.object({ messageId: z.string(), content: z.string().min(1) }))
+    .mutation(async ({ ctx, input }) => {
+      const [message] = await db
+        .update(schema.messages)
+        .set({ content: input.content, editedAt: new Date() })
+        .where(and(eq(schema.messages.id, input.messageId), eq(schema.messages.authorId, ctx.userId)))
+        .returning();
+
+      if (!message) throw new TRPCError({ code: "FORBIDDEN", message: "Message not found or not yours" });
+
+      getIO()?.to(`channel:${message.channelId}`).emit("message:updated", {
+        ...message,
+        editedAt: message.editedAt ?? undefined,
+        attachments: [],
+        reactions: [],
+      });
+
+      return message;
+    }),
+
+  delete: protectedProcedure
+    .input(z.object({ messageId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const [message] = await db
+        .delete(schema.messages)
+        .where(and(eq(schema.messages.id, input.messageId), eq(schema.messages.authorId, ctx.userId)))
+        .returning();
+
+      if (!message) throw new TRPCError({ code: "FORBIDDEN", message: "Message not found or not yours" });
+
+      getIO()?.to(`channel:${message.channelId}`).emit("message:deleted", message.id);
+
+      return message;
+    }),
 });
 
 const dmRouter = router({

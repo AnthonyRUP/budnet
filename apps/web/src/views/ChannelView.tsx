@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Message } from "@budnet/ui/message";
 import { trpc } from "@budnet/api";
 import { useWorkspaceStore, type DmConversation } from "@budnet/store";
+import { authClient } from "../lib/auth-client";
+import { MessageItem } from "../components/MessageItem";
 
 function ChannelSettings({ channelId, channelName, channelDescription }: {
   channelId: string;
@@ -166,6 +167,7 @@ export function ChannelView() {
   const channel = channels.find((c) => c.id === channelId);
   const dm = dms.find((d) => d.channelId === channelId);
 
+  const { data: session } = authClient.useSession();
   const utils = trpc.useUtils();
   const { data } = trpc.message.list.useQuery(
     { channelId: channelId! },
@@ -217,11 +219,11 @@ export function ChannelView() {
       </header>
       <div className="flex-1 overflow-y-auto py-2">
         {data?.messages.map((msg) => (
-          <Message
+          <MessageItem
             key={msg.id}
             message={msg}
-            authorName={msg.authorName || msg.authorEmail?.split("@")[0] || msg.authorId}
-            authorAvatar={msg.authorImage ?? undefined}
+            currentUserId={session?.user.id}
+            onInvalidate={() => utils.message.list.invalidate({ channelId: channelId! })}
           />
         ))}
       </div>
