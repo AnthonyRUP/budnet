@@ -1,6 +1,14 @@
 import React, { useEffect, useRef, useState } from "react";
 import { trpc } from "@budnet/api";
 
+const QUICK_EMOJIS = ["👍", "👎", "❤️", "😂", "😮", "😢", "🎉", "🔥", "👀", "🙌", "💯", "🤔", "😅", "🥳", "🙏", "✅", "👏", "💪", "🤣", "😍", "⚡", "💡", "🎯", "💀"];
+
+interface Reaction {
+  emoji: string;
+  count: number;
+  userIds: string[];
+}
+
 interface MessageData {
   id: string;
   content: string;
@@ -11,6 +19,7 @@ interface MessageData {
   createdAt: Date | string;
   editedAt?: Date | string | null;
   channelId: string;
+  reactions?: Reaction[];
 }
 
 interface Props {
@@ -23,8 +32,10 @@ export function MessageItem({ message, currentUserId, onInvalidate }: Props) {
   const [hovering, setHovering] = useState(false);
   const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showPicker, setShowPicker] = useState(false);
   const [editContent, setEditContent] = useState(message.content);
   const editRef = useRef<HTMLTextAreaElement>(null);
+  const pickerRef = useRef<HTMLDivElement>(null);
 
   const isOwn = currentUserId === message.authorId;
 
@@ -54,11 +65,32 @@ export function MessageItem({ message, currentUserId, onInvalidate }: Props) {
       if (e.key === "Escape") {
         setEditing(false);
         setConfirmDelete(false);
+        setShowPicker(false);
       }
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, []);
+
+  useEffect(() => {
+    if (!showPicker) return;
+    function onMouseDown(e: MouseEvent) {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) setShowPicker(false);
+    }
+    document.addEventListener("mousedown", onMouseDown);
+    return () => document.removeEventListener("mousedown", onMouseDown);
+  }, [showPicker]);
+
+  const react = trpc.message.react.useMutation({
+    onSuccess: () => onInvalidate(),
+  });
+
+  function handleReact(emoji: string) {
+    react.mutate({ messageId: message.id, channelId: message.channelId, emoji });
+    setShowPicker(false);
+  }
+
+  const reactions = message.reactions ?? [];
 
   function handleSaveEdit(e: React.FormEvent) {
     e.preventDefault();
@@ -135,29 +167,83 @@ export function MessageItem({ message, currentUserId, onInvalidate }: Props) {
         ) : (
           <p className="text-sm text-gray-800 break-words whitespace-pre-wrap">{message.content}</p>
         )}
+
+        {/* Reaction chips */}
+        {reactions.length > 0 && !editing && (
+          <div className="flex flex-wrap gap-1 mt-1.5">
+            {reactions.map((r) => {
+              const reacted = r.userIds.includes(currentUserId ?? "");
+              return (
+                <button
+                  key={r.emoji}
+                  onClick={() => handleReact(r.emoji)}
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs border transition-colors ${
+                    reacted
+                      ? "bg-brand-100 border-brand-300 text-brand-700"
+                      : "bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100"
+                  }`}
+                >
+                  <span>{r.emoji}</span>
+                  <span className="font-medium">{r.count}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
-      {/* Hover action buttons — own messages only, hidden while editing/confirming */}
-      {isOwn && hovering && !editing && !confirmDelete && (
+      {/* Hover action buttons */}
+      {hovering && !editing && !confirmDelete && (
         <div className="absolute right-4 -top-3 flex items-center gap-0.5 bg-white border border-gray-200 rounded-lg shadow-sm px-1 py-0.5">
-          <button
-            onClick={() => setEditing(true)}
-            title="Edit"
-            className="p-1 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-            </svg>
-          </button>
-          <button
-            onClick={() => setConfirmDelete(true)}
-            title="Delete"
-            className="p-1 rounded text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
-          </button>
+          {/* Emoji reaction — visible to everyone */}
+          <div className="relative" ref={pickerRef}>
+            <button
+              onClick={() => setShowPicker((v) => !v)}
+              title="Add reaction"
+              className="p-1 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors text-sm leading-none"
+            >
+              😊
+            </button>
+            {showPicker && (
+              <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl p-2 z-50 w-52">
+                <div className="grid grid-cols-6 gap-0.5">
+                  {QUICK_EMOJIS.map((emoji) => (
+                    <button
+                      key={emoji}
+                      onClick={() => handleReact(emoji)}
+                      className="w-8 h-8 flex items-center justify-center text-lg hover:bg-gray-100 rounded transition-colors"
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Edit + delete — own messages only */}
+          {isOwn && (
+            <>
+              <button
+                onClick={() => setEditing(true)}
+                title="Edit"
+                className="p-1 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+              </button>
+              <button
+                onClick={() => setConfirmDelete(true)}
+                title="Delete"
+                className="p-1 rounded text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+            </>
+          )}
         </div>
       )}
     </div>

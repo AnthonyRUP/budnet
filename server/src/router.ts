@@ -1,5 +1,19 @@
 import { z } from "zod";
 import { eq, and, desc, lt, ne, inArray, getTableColumns } from "drizzle-orm";
+
+function groupReactions(reactions: { emoji: string; userId: string }[]) {
+  const map = new Map<string, string[]>();
+  for (const r of reactions) {
+    const users = map.get(r.emoji) ?? [];
+    users.push(r.userId);
+    map.set(r.emoji, users);
+  }
+  return Array.from(map.entries()).map(([emoji, userIds]) => ({
+    emoji,
+    count: userIds.length,
+    userIds,
+  }));
+}
 import { TRPCError } from "@trpc/server";
 import { router, publicProcedure, protectedProcedure } from "./trpc";
 import { db, schema } from "./db";
@@ -211,12 +225,26 @@ const messageRouter = router({
         .orderBy(desc(schema.messages.createdAt))
         .limit(input.limit);
 
+      // Fetch reactions for these messages in one query
+      const messageIds = rows.map((r) => r.id);
+      const allReactions = messageIds.length
+        ? await db
+            .select()
+            .from(schema.messageReactions)
+            .where(inArray(schema.messageReactions.messageId, messageIds))
+        : [];
+
       const nextCursor =
         rows.length === input.limit
           ? rows[rows.length - 1].createdAt.toISOString()
           : undefined;
 
-      return { messages: rows.reverse(), nextCursor };
+      const messages = rows.reverse().map((row) => ({
+        ...row,
+        reactions: groupReactions(allReactions.filter((r) => r.messageId === row.id)),
+      }));
+
+      return { messages, nextCursor };
     }),
 
   send: protectedProcedure
@@ -275,6 +303,41 @@ const messageRouter = router({
       getIO()?.to(`channel:${message.channelId}`).emit("message:deleted", message.id);
 
       return message;
+    }),
+
+  react: protectedProcedure
+    .input(z.object({ messageId: z.string(), channelId: z.string(), emoji: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      // Toggle: try insert; if conflict (already reacted), delete instead
+      const [inserted] = await db
+        .insert(schema.messageReactions)
+        .values({ messageId: input.messageId, userId: ctx.userId, emoji: input.emoji })
+        .onConflictDoNothing()
+        .returning();
+
+      if (!inserted) {
+        await db
+          .delete(schema.messageReactions)
+          .where(and(
+            eq(schema.messageReactions.messageId, input.messageId),
+            eq(schema.messageReactions.userId, ctx.userId),
+            eq(schema.messageReactions.emoji, input.emoji),
+          ));
+      }
+
+      const reactions = await db
+        .select()
+        .from(schema.messageReactions)
+        .where(eq(schema.messageReactions.messageId, input.messageId));
+
+      const grouped = groupReactions(reactions);
+
+      getIO()?.to(`channel:${input.channelId}`).emit("message:reaction", {
+        messageId: input.messageId,
+        reactions: grouped,
+      });
+
+      return grouped;
     }),
 });
 

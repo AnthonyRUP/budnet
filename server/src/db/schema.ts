@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, boolean, uuid, pgEnum, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, boolean, uuid, pgEnum, integer, primaryKey } from "drizzle-orm/pg-core";
 
 // ─── Better Auth tables ───────────────────────────────────────────────────────
 
@@ -103,3 +103,10 @@ export const messages = pgTable("messages", {
   editedAt: timestamp("edited_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+export const messageReactions = pgTable("message_reactions", {
+  messageId: uuid("message_id").notNull().references(() => messages.id, { onDelete: "cascade" }),
+  userId: text("user_id").notNull().references(() => baUser.id, { onDelete: "cascade" }),
+  emoji: text("emoji").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [primaryKey({ columns: [t.messageId, t.userId, t.emoji] })]);
