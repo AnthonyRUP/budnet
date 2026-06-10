@@ -22,6 +22,16 @@ export const auth = betterAuth({
     },
   }),
 
+  databaseHooks: {
+    user: {
+      create: {
+        before: async (user) => ({
+          data: { ...user, name: user.name || user.email.split("@")[0] },
+        }),
+      },
+    },
+  },
+
   plugins: [
     magicLink({
       sendMagicLink: async ({ email, url }) => {
