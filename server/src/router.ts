@@ -104,6 +104,7 @@ const channelRouter = router({
       z.object({
         workspaceId: z.string(),
         name: z.string().min(1),
+        description: z.string().optional(),
         isPrivate: z.boolean().default(false),
       }),
     )
@@ -113,6 +114,7 @@ const channelRouter = router({
         .values({
           workspaceId: input.workspaceId,
           name: input.name,
+          description: input.description,
           isPrivate: input.isPrivate,
           createdBy: ctx.userId,
         })

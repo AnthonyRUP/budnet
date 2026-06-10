@@ -152,7 +152,7 @@ server/       Fastify + tRPC + Socket.io + Drizzle
 - [x] Public channels
 - [x] Real-time messaging via Socket.io
 - [x] Sign out
-- [ ] Create / manage channels
+- [x] Create / manage channels
 - [ ] Direct messages (1:1 and group)
 - [ ] Invite links
 - [ ] Edit / delete messages

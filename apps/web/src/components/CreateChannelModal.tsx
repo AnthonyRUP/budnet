@@ -41,7 +41,7 @@ export function CreateChannelModal({ onClose }: Props) {
     const slug = name.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
     if (!slug || !activeWorkspace) return;
     setError("");
-    create.mutate({ workspaceId: activeWorkspace.id, name: slug, isPrivate });
+    create.mutate({ workspaceId: activeWorkspace.id, name: slug, description: description.trim() || undefined, isPrivate });
   }
 
   return (

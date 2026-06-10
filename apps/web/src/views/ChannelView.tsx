@@ -185,6 +185,7 @@ export function ChannelView() {
         <span className="font-semibold text-gray-900"># {channel?.name ?? channelId}</span>
         {channel && (
           <ChannelSettings
+            key={channelId}
             channelId={channelId!}
             channelName={channel.name}
             channelDescription={channel.description}
