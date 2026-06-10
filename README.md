@@ -157,7 +157,7 @@ server/       Fastify + tRPC + Socket.io + Drizzle
 - [x] User profiles (edit display name, email-prefix default)
 - [x] Direct messages (1:1 and group)
 - [x] Edit / delete messages
-- [ ] Emoji reactions
+- [x] Emoji reactions
 - [ ] Message threads
 - [ ] File and image uploads
 - [ ] Avatar uploads
