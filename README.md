@@ -159,7 +159,7 @@ server/       Fastify + tRPC + Socket.io + Drizzle
 - [x] Edit / delete messages
 - [x] Emoji reactions
 - [ ] Message threads
-- [ ] File and image uploads
+- [x] File and image uploads
 - [ ] Avatar uploads
 - [ ] @mention notifications
 - [ ] Full-text message search
