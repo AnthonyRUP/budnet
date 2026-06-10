@@ -151,7 +151,7 @@ server/       Fastify + tRPC + Socket.io + Drizzle
 - [x] Workspaces with auto-setup
 - [x] Public channels
 - [x] Real-time messaging via Socket.io
-- [ ] Sign out
+- [x] Sign out
 - [ ] Create / manage channels
 - [ ] Direct messages (1:1 and group)
 - [ ] Invite links
