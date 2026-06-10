@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Message } from "@budnet/ui/message";
 import { trpc } from "@budnet/api";
-import { useWorkspaceStore } from "@budnet/store";
+import { useWorkspaceStore, type DmConversation } from "@budnet/store";
 
 function ChannelSettings({ channelId, channelName, channelDescription }: {
   channelId: string;
@@ -153,12 +153,18 @@ function ChannelSettings({ channelId, channelName, channelDescription }: {
   );
 }
 
+function dmLabel(dm: DmConversation) {
+  if (!dm.participants.length) return "Empty DM";
+  return dm.participants.map((p) => p.name || p.email.split("@")[0]).join(", ");
+}
+
 export function ChannelView() {
   const { channelId } = useParams<{ channelId: string }>();
   const [input, setInput] = useState("");
-  const { channels } = useWorkspaceStore();
+  const { channels, dms } = useWorkspaceStore();
 
   const channel = channels.find((c) => c.id === channelId);
+  const dm = dms.find((d) => d.channelId === channelId);
 
   const utils = trpc.useUtils();
   const { data } = trpc.message.list.useQuery(
@@ -182,8 +188,25 @@ export function ChannelView() {
   return (
     <div className="flex flex-col h-full">
       <header className="px-4 py-2.5 border-b flex items-center justify-between">
-        <span className="font-semibold text-gray-900"># {channel?.name ?? channelId}</span>
-        {channel && (
+        {dm ? (
+          <div className="flex items-center gap-2">
+            <div className="flex -space-x-1">
+              {dm.participants.slice(0, 3).map((p) => {
+                const name = p.name || p.email.split("@")[0];
+                const initials = name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
+                return (
+                  <div key={p.id} className="w-6 h-6 rounded-full bg-brand-500 flex items-center justify-center text-white text-[9px] font-bold ring-2 ring-white overflow-hidden">
+                    {p.image ? <img src={p.image} alt={name} className="w-full h-full object-cover" /> : initials}
+                  </div>
+                );
+              })}
+            </div>
+            <span className="font-semibold text-gray-900">{dmLabel(dm)}</span>
+          </div>
+        ) : (
+          <span className="font-semibold text-gray-900"># {channel?.name ?? channelId}</span>
+        )}
+        {channel && !dm && (
           <ChannelSettings
             key={channelId}
             channelId={channelId!}
@@ -206,7 +229,7 @@ export function ChannelView() {
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder={`Message #${channel?.name ?? "channel"}`}
+          placeholder={dm ? `Message ${dmLabel(dm)}` : `Message #${channel?.name ?? "channel"}`}
           className="w-full px-3 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm"
           disabled={send.isPending}
         />

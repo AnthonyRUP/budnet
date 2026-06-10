@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { eq, and, desc, lt, getTableColumns } from "drizzle-orm";
+import { eq, and, desc, lt, ne, inArray, getTableColumns } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { router, publicProcedure, protectedProcedure } from "./trpc";
 import { db, schema } from "./db";
@@ -44,6 +44,24 @@ const workspaceRouter = router({
       });
 
       return workspace;
+    }),
+
+  members: protectedProcedure
+    .input(z.object({ workspaceId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      return db
+        .select({
+          id: schema.baUser.id,
+          name: schema.baUser.name,
+          email: schema.baUser.email,
+          image: schema.baUser.image,
+        })
+        .from(schema.workspaceMembers)
+        .innerJoin(schema.baUser, eq(schema.baUser.id, schema.workspaceMembers.userId))
+        .where(and(
+          eq(schema.workspaceMembers.workspaceId, input.workspaceId),
+          ne(schema.workspaceMembers.userId, ctx.userId),
+        ));
     }),
 
   // Idempotent first-run setup: returns existing workspace or creates one with #general
@@ -94,6 +112,7 @@ const channelRouter = router({
           and(
             eq(schema.channels.workspaceId, input.workspaceId),
             eq(schema.channelMembers.userId, ctx.userId),
+            eq(schema.channels.isDm, false),
           ),
         )
         .then((rows) => rows.map((r) => r.channel));
@@ -223,6 +242,97 @@ const messageRouter = router({
     }),
 });
 
+const dmRouter = router({
+  list: protectedProcedure
+    .input(z.object({ workspaceId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      // DM channels the current user belongs to
+      const myDmChannelIds = await db
+        .select({ channelId: schema.channelMembers.channelId })
+        .from(schema.channelMembers)
+        .innerJoin(schema.channels, eq(schema.channels.id, schema.channelMembers.channelId))
+        .where(and(
+          eq(schema.channelMembers.userId, ctx.userId),
+          eq(schema.channels.isDm, true),
+          eq(schema.channels.workspaceId, input.workspaceId),
+        ))
+        .then((rows) => rows.map((r) => r.channelId));
+
+      if (myDmChannelIds.length === 0) return [];
+
+      // Other participants in those channels
+      const participants = await db
+        .select({
+          channelId: schema.channelMembers.channelId,
+          id: schema.baUser.id,
+          name: schema.baUser.name,
+          email: schema.baUser.email,
+          image: schema.baUser.image,
+        })
+        .from(schema.channelMembers)
+        .innerJoin(schema.baUser, eq(schema.baUser.id, schema.channelMembers.userId))
+        .where(and(
+          inArray(schema.channelMembers.channelId, myDmChannelIds),
+          ne(schema.channelMembers.userId, ctx.userId),
+        ));
+
+      return myDmChannelIds.map((channelId) => ({
+        channelId,
+        participants: participants.filter((p) => p.channelId === channelId),
+      }));
+    }),
+
+  findOrCreate: protectedProcedure
+    .input(z.object({
+      workspaceId: z.string(),
+      memberIds: z.array(z.string()).min(1).max(7),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const allMemberIds = [...new Set([ctx.userId, ...input.memberIds])].sort();
+
+      // Look for existing DM with exactly these members
+      const candidates = await db
+        .select({ channelId: schema.channelMembers.channelId })
+        .from(schema.channelMembers)
+        .innerJoin(schema.channels, eq(schema.channels.id, schema.channelMembers.channelId))
+        .where(and(
+          eq(schema.channelMembers.userId, ctx.userId),
+          eq(schema.channels.isDm, true),
+          eq(schema.channels.workspaceId, input.workspaceId),
+        ));
+
+      for (const { channelId } of candidates) {
+        const members = await db
+          .select({ userId: schema.channelMembers.userId })
+          .from(schema.channelMembers)
+          .where(eq(schema.channelMembers.channelId, channelId));
+
+        const sorted = members.map((m) => m.userId).sort();
+        if (sorted.length === allMemberIds.length && sorted.every((id, i) => id === allMemberIds[i])) {
+          return { channelId, isNew: false };
+        }
+      }
+
+      // Create new DM channel
+      const [channel] = await db
+        .insert(schema.channels)
+        .values({
+          workspaceId: input.workspaceId,
+          name: "",
+          isDm: true,
+          isPrivate: true,
+          createdBy: ctx.userId,
+        })
+        .returning();
+
+      for (const userId of allMemberIds) {
+        await db.insert(schema.channelMembers).values({ channelId: channel.id, userId });
+      }
+
+      return { channelId: channel.id, isNew: true };
+    }),
+});
+
 const inviteRouter = router({
   create: protectedProcedure
     .input(z.object({
@@ -344,6 +454,7 @@ export const appRouter = router({
   workspace: workspaceRouter,
   channel: channelRouter,
   message: messageRouter,
+  dm: dmRouter,
   invite: inviteRouter,
 });
 

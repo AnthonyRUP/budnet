@@ -70,9 +70,10 @@ export const workspaceMembers = pgTable("workspace_members", {
 export const channels = pgTable("channels", {
   id: uuid("id").primaryKey().defaultRandom(),
   workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
-  name: text("name").notNull(),
+  name: text("name").notNull().default(""),
   description: text("description"),
   isPrivate: boolean("is_private").notNull().default(false),
+  isDm: boolean("is_dm").notNull().default(false),
   createdBy: text("created_by").notNull().references(() => baUser.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

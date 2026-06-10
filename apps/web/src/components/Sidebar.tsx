@@ -1,10 +1,12 @@
 import React, { useEffect, useRef, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { useWorkspaceStore } from "@budnet/store";
+import { useWorkspaceStore, type DmConversation } from "@budnet/store";
 import { authClient } from "../lib/auth-client";
+import { trpc } from "@budnet/api";
 import { CreateChannelModal } from "./CreateChannelModal";
 import { InviteModal } from "./InviteModal";
 import { EditProfileModal } from "./EditProfileModal";
+import { NewDmModal } from "./NewDmModal";
 
 function ProfileBar() {
   const { data: session } = authClient.useSession();
@@ -96,6 +98,67 @@ function ProfileBar() {
   );
 }
 
+function DmSection() {
+  const { activeWorkspace, setDms } = useWorkspaceStore();
+  const [showNewDm, setShowNewDm] = useState(false);
+  const utils = trpc.useUtils();
+
+  const { data: dms = [] } = trpc.dm.list.useQuery(
+    { workspaceId: activeWorkspace?.id ?? "" },
+    { enabled: !!activeWorkspace?.id },
+  );
+
+  useEffect(() => { setDms(dms); }, [dms, setDms]);
+
+  function dmLabel(dm: DmConversation) {
+    if (!dm.participants.length) return "Empty DM";
+    return dm.participants
+      .map((p) => p.name || p.email.split("@")[0])
+      .join(", ");
+  }
+
+  function dmInitials(dm: DmConversation) {
+    const first = dm.participants[0];
+    if (!first) return "?";
+    const name = first.name || first.email.split("@")[0];
+    return name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);
+  }
+
+  return (
+    <div className="px-3 py-1 mt-1 border-t border-white/10 pt-3">
+      <div className="flex items-center justify-between mb-1">
+        <p className="text-xs font-semibold text-white/40 uppercase tracking-wider">Direct Messages</p>
+        <button
+          onClick={() => setShowNewDm(true)}
+          title="New DM"
+          className="w-5 h-5 flex items-center justify-center rounded hover:bg-white/10 text-white/40 hover:text-white transition-colors"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+          </svg>
+        </button>
+      </div>
+      {dms.map((dm) => (
+        <NavLink
+          key={dm.channelId}
+          to={`/app/channel/${dm.channelId}`}
+          className={({ isActive }) =>
+            `flex items-center gap-2 px-2 py-1 rounded text-sm ${isActive ? "bg-white/20 text-white" : "text-white/70 hover:text-white hover:bg-white/10"}`
+          }
+        >
+          <div className="w-5 h-5 rounded-full bg-brand-500 flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0 overflow-hidden">
+            {dm.participants[0]?.image
+              ? <img src={dm.participants[0].image} alt="" className="w-full h-full object-cover" />
+              : dmInitials(dm)}
+          </div>
+          <span className="truncate">{dmLabel(dm)}</span>
+        </NavLink>
+      ))}
+      {showNewDm && <NewDmModal onClose={() => { setShowNewDm(false); utils.dm.list.invalidate(); }} />}
+    </div>
+  );
+}
+
 export function Sidebar() {
   const { activeWorkspace, channels } = useWorkspaceStore();
   const [showCreateChannel, setShowCreateChannel] = useState(false);
@@ -141,6 +204,7 @@ export function Sidebar() {
             </NavLink>
           ))}
         </div>
+        <DmSection />
       </nav>
       <ProfileBar />
       {showCreateChannel && <CreateChannelModal onClose={() => setShowCreateChannel(false)} />}
