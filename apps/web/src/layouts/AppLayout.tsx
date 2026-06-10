@@ -43,7 +43,11 @@ export function AppLayout() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [channels, location.pathname]);
 
-  const isBooting = loadingWorkspaces || (!!activeWorkspace && loadingChannels);
+  // Stay in loading state until we have both a workspace AND channels loaded.
+  // Without !activeWorkspace, there's a window where loadingWorkspaces=false but
+  // the store effect hasn't run yet — channel.list is disabled so loadingChannels=false
+  // too, making isBooting=false and rendering the layout before channels exist.
+  const isBooting = loadingWorkspaces || !activeWorkspace || loadingChannels;
 
   if (isBooting) {
     return (
