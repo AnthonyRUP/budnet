@@ -225,14 +225,16 @@ const messageRouter = router({
         .orderBy(desc(schema.messages.createdAt))
         .limit(input.limit);
 
-      // Fetch reactions for these messages in one query
       const messageIds = rows.map((r) => r.id);
-      const allReactions = messageIds.length
-        ? await db
-            .select()
-            .from(schema.messageReactions)
-            .where(inArray(schema.messageReactions.messageId, messageIds))
-        : [];
+
+      const [allReactions, allAttachments] = await Promise.all([
+        messageIds.length
+          ? db.select().from(schema.messageReactions).where(inArray(schema.messageReactions.messageId, messageIds))
+          : Promise.resolve([]),
+        messageIds.length
+          ? db.select().from(schema.attachments).where(inArray(schema.attachments.messageId, messageIds))
+          : Promise.resolve([]),
+      ]);
 
       const nextCursor =
         rows.length === input.limit
@@ -242,14 +244,28 @@ const messageRouter = router({
       const messages = rows.reverse().map((row) => ({
         ...row,
         reactions: groupReactions(allReactions.filter((r) => r.messageId === row.id)),
+        attachments: allAttachments.filter((a) => a.messageId === row.id),
       }));
 
       return { messages, nextCursor };
     }),
 
   send: protectedProcedure
-    .input(z.object({ channelId: z.string(), content: z.string().min(1) }))
+    .input(z.object({
+      channelId: z.string(),
+      content: z.string(),
+      attachments: z.array(z.object({
+        url: z.string(),
+        filename: z.string(),
+        mimeType: z.string(),
+        size: z.number(),
+      })).default([]),
+    }))
     .mutation(async ({ ctx, input }) => {
+      if (!input.content.trim() && !input.attachments.length) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Message must have content or attachments" });
+      }
+
       const [message] = await db
         .insert(schema.messages)
         .values({
@@ -259,10 +275,16 @@ const messageRouter = router({
         })
         .returning();
 
+      const savedAttachments = input.attachments.length
+        ? await db.insert(schema.attachments).values(
+            input.attachments.map((a) => ({ messageId: message.id, ...a }))
+          ).returning()
+        : [];
+
       getIO()?.to(`channel:${input.channelId}`).emit("message:new", {
         ...message,
         editedAt: message.editedAt ?? undefined,
-        attachments: [],
+        attachments: savedAttachments,
         reactions: [],
       });
 

@@ -9,6 +9,20 @@ interface Reaction {
   userIds: string[];
 }
 
+interface Attachment {
+  id: string;
+  url: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+}
+
+function formatBytes(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 interface MessageData {
   id: string;
   content: string;
@@ -20,6 +34,7 @@ interface MessageData {
   editedAt?: Date | string | null;
   channelId: string;
   reactions?: Reaction[];
+  attachments?: Attachment[];
 }
 
 interface Props {
@@ -166,6 +181,39 @@ export function MessageItem({ message, currentUserId, onInvalidate }: Props) {
           </div>
         ) : (
           <p className="text-sm text-gray-800 break-words whitespace-pre-wrap">{message.content}</p>
+        )}
+
+        {/* Attachments */}
+        {message.attachments && message.attachments.length > 0 && !editing && (
+          <div className="flex flex-wrap gap-2 mt-2">
+            {message.attachments.map((a) => (
+              a.mimeType.startsWith("image/") ? (
+                <a key={a.id} href={a.url} target="_blank" rel="noopener noreferrer" className="block">
+                  <img
+                    src={a.url}
+                    alt={a.filename}
+                    className="max-w-xs max-h-60 rounded-lg border object-contain bg-gray-50 hover:opacity-90 transition-opacity"
+                  />
+                </a>
+              ) : (
+                <a
+                  key={a.id}
+                  href={a.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 bg-gray-50 border rounded-lg px-3 py-2 hover:bg-gray-100 transition-colors max-w-xs"
+                >
+                  <svg className="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                  </svg>
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-gray-800 truncate">{a.filename}</p>
+                    <p className="text-xs text-gray-400">{formatBytes(a.size)}</p>
+                  </div>
+                </a>
+              )
+            ))}
+          </div>
         )}
 
         {/* Reaction chips */}

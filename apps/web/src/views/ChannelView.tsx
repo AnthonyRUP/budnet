@@ -1,9 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { trpc } from "@budnet/api";
-import { useWorkspaceStore, type DmConversation } from "@budnet/store";
+import { useWorkspaceStore } from "@budnet/store";
+import type { DmConversation } from "@budnet/store";
 import { authClient } from "../lib/auth-client";
 import { MessageItem } from "../components/MessageItem";
+import { MessageInput } from "../components/MessageInput";
 
 function ChannelSettings({ channelId, channelName, channelDescription }: {
   channelId: string;
@@ -161,11 +163,16 @@ function dmLabel(dm: DmConversation) {
 
 export function ChannelView() {
   const { channelId } = useParams<{ channelId: string }>();
-  const [input, setInput] = useState("");
-  const { channels, dms } = useWorkspaceStore();
+  const { channels, activeWorkspace } = useWorkspaceStore();
 
   const channel = channels.find((c) => c.id === channelId);
-  const dm = dms.find((d) => d.channelId === channelId);
+
+  // DM info — query is deduplicated by TanStack Query (same key as Sidebar)
+  const { data: allDms = [] } = trpc.dm.list.useQuery(
+    { workspaceId: activeWorkspace?.id ?? "" },
+    { enabled: !!activeWorkspace?.id },
+  );
+  const dm = allDms.find((d: DmConversation) => d.channelId === channelId);
 
   const { data: session } = authClient.useSession();
   const utils = trpc.useUtils();
@@ -180,11 +187,9 @@ export function ChannelView() {
     },
   });
 
-  function handleSend(e: React.FormEvent) {
-    e.preventDefault();
-    if (!input.trim() || !channelId) return;
-    send.mutate({ channelId, content: input.trim() });
-    setInput("");
+  function handleSend(content: string, attachments: { url: string; filename: string; mimeType: string; size: number }[]) {
+    if (!channelId) return;
+    send.mutate({ channelId, content, attachments });
   }
 
   return (
@@ -227,15 +232,11 @@ export function ChannelView() {
           />
         ))}
       </div>
-      <form onSubmit={handleSend} className="px-4 py-3 border-t">
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder={dm ? `Message ${dmLabel(dm)}` : `Message #${channel?.name ?? "channel"}`}
-          className="w-full px-3 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm"
-          disabled={send.isPending}
-        />
-      </form>
+      <MessageInput
+        placeholder={dm ? `Message ${dmLabel(dm)}` : `Message #${channel?.name ?? "channel"}`}
+        onSend={handleSend}
+        disabled={send.isPending}
+      />
     </div>
   );
 }

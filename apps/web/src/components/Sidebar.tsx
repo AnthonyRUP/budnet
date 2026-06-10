@@ -99,7 +99,7 @@ function ProfileBar() {
 }
 
 function DmSection() {
-  const { activeWorkspace, setDms } = useWorkspaceStore();
+  const { activeWorkspace } = useWorkspaceStore();
   const [showNewDm, setShowNewDm] = useState(false);
   const utils = trpc.useUtils();
 
@@ -107,8 +107,6 @@ function DmSection() {
     { workspaceId: activeWorkspace?.id ?? "" },
     { enabled: !!activeWorkspace?.id },
   );
-
-  useEffect(() => { setDms(dms); }, [dms, setDms]);
 
   function dmLabel(dm: DmConversation) {
     if (!dm.participants.length) return "Empty DM";
