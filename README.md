@@ -156,7 +156,7 @@ server/       Fastify + tRPC + Socket.io + Drizzle
 - [x] Invite links (shareable workspace invites with auto-join)
 - [x] User profiles (edit display name, email-prefix default)
 - [x] Direct messages (1:1 and group)
-- [ ] Edit / delete messages
+- [x] Edit / delete messages
 - [ ] Emoji reactions
 - [ ] Message threads
 - [ ] File and image uploads
