@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { eq, and, desc, lt } from "drizzle-orm";
+import { eq, and, desc, lt, getTableColumns } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { router, publicProcedure, protectedProcedure } from "./trpc";
 import { db, schema } from "./db";
@@ -179,19 +179,25 @@ const messageRouter = router({
           )
         : eq(schema.messages.channelId, input.channelId);
 
-      const messages = await db
-        .select()
+      const rows = await db
+        .select({
+          ...getTableColumns(schema.messages),
+          authorName: schema.baUser.name,
+          authorEmail: schema.baUser.email,
+          authorImage: schema.baUser.image,
+        })
         .from(schema.messages)
+        .leftJoin(schema.baUser, eq(schema.messages.authorId, schema.baUser.id))
         .where(where)
         .orderBy(desc(schema.messages.createdAt))
         .limit(input.limit);
 
       const nextCursor =
-        messages.length === input.limit
-          ? messages[messages.length - 1].createdAt.toISOString()
+        rows.length === input.limit
+          ? rows[rows.length - 1].createdAt.toISOString()
           : undefined;
 
-      return { messages: messages.reverse(), nextCursor };
+      return { messages: rows.reverse(), nextCursor };
     }),
 
   send: protectedProcedure

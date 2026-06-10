@@ -194,7 +194,12 @@ export function ChannelView() {
       </header>
       <div className="flex-1 overflow-y-auto py-2">
         {data?.messages.map((msg) => (
-          <Message key={msg.id} message={msg} authorName="User" />
+          <Message
+            key={msg.id}
+            message={msg}
+            authorName={msg.authorName || msg.authorEmail?.split("@")[0] || msg.authorId}
+            authorAvatar={msg.authorImage ?? undefined}
+          />
         ))}
       </div>
       <form onSubmit={handleSend} className="px-4 py-3 border-t">
