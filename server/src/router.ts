@@ -295,11 +295,20 @@ const messageRouter = router({
         });
       }
 
+      const [author] = await db
+        .select({ name: schema.baUser.name, email: schema.baUser.email, image: schema.baUser.image })
+        .from(schema.baUser)
+        .where(eq(schema.baUser.id, ctx.userId))
+        .limit(1);
+
       getIO()?.to(`channel:${input.channelId}`).emit("message:new", {
         ...message,
         editedAt: message.editedAt ?? undefined,
         attachments: savedAttachments,
         reactions: [],
+        authorName: author?.name ?? null,
+        authorEmail: author?.email ?? null,
+        authorImage: author?.image ?? null,
       });
 
       return message;

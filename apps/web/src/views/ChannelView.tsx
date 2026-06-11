@@ -6,6 +6,8 @@ import type { DmConversation } from "@budnet/store";
 import { authClient } from "../lib/auth-client";
 import { MessageItem } from "../components/MessageItem";
 import { MessageInput } from "../components/MessageInput";
+import { getSocket } from "../lib/socket-client";
+import type { Message, Reaction } from "@budnet/types";
 
 function ChannelSettings({ channelId, channelName, channelDescription }: {
   channelId: string;
@@ -181,11 +183,55 @@ export function ChannelView() {
     { enabled: !!channelId },
   );
 
-  const send = trpc.message.send.useMutation({
-    onSuccess: () => {
-      utils.message.list.invalidate({ channelId: channelId! });
-    },
-  });
+  const send = trpc.message.send.useMutation();
+
+  // Join channel Socket.io room and subscribe to real-time message events
+  useEffect(() => {
+    if (!channelId) return;
+    const cid = channelId;
+    const socket = getSocket();
+    if (!socket) return;
+
+    socket.emit("channel:join", cid);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const patch = (updater: (msgs: any[]) => any[]) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      utils.message.list.setData({ channelId: cid }, (old: any) => {
+        if (!old) return old;
+        return { ...old, messages: updater(old.messages) };
+      });
+    };
+
+    const onNew = (msg: Message) => {
+      if (msg.channelId !== cid) return;
+      patch((msgs) => msgs.some((m) => m.id === msg.id) ? msgs : [...msgs, msg]);
+    };
+    const onUpdated = (msg: Message) => {
+      if (msg.channelId !== cid) return;
+      patch((msgs) => msgs.map((m) => m.id === msg.id ? { ...m, ...msg } : m));
+    };
+    const onDeleted = (messageId: string) => {
+      patch((msgs) => msgs.filter((m) => m.id !== messageId));
+    };
+    const onReaction = (data: { messageId: string; reactions: Reaction[] }) => {
+      patch((msgs) => msgs.map((m) => m.id === data.messageId ? { ...m, reactions: data.reactions } : m));
+    };
+
+    socket.on("message:new", onNew);
+    socket.on("message:updated", onUpdated);
+    socket.on("message:deleted", onDeleted);
+    socket.on("message:reaction", onReaction);
+
+    return () => {
+      socket.emit("channel:leave", cid);
+      socket.off("message:new", onNew);
+      socket.off("message:updated", onUpdated);
+      socket.off("message:deleted", onDeleted);
+      socket.off("message:reaction", onReaction);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [channelId]);
 
   function handleSend(
     content: string,

@@ -33,6 +33,10 @@ export interface Message {
   createdAt: Date | string;
   attachments?: Attachment[];
   reactions?: Reaction[];
+  // Joined author fields (present in socket events and message.list responses)
+  authorName?: string | null;
+  authorEmail?: string | null;
+  authorImage?: string | null;
 }
 
 export interface Attachment {
