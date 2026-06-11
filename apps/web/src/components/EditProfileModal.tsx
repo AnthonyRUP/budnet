@@ -11,9 +11,12 @@ export function EditProfileModal({ onClose }: Props) {
 
   const emailPrefix = user?.email?.split("@")[0] ?? "";
   const [name, setName] = useState(user?.name || emailPrefix);
+  const [avatarUrl, setAvatarUrl] = useState(user?.image ?? "");
+  const [avatarUploading, setAvatarUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { inputRef.current?.focus(); }, []);
 
@@ -23,6 +26,26 @@ export function EditProfileModal({ onClose }: Props) {
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
 
+  async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAvatarUploading(true);
+    setError("");
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/upload", { method: "POST", body: formData, credentials: "include" });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json() as { url: string };
+      setAvatarUrl(data.url);
+    } catch {
+      setError("Avatar upload failed");
+    } finally {
+      setAvatarUploading(false);
+      e.target.value = "";
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const trimmed = name.trim();
@@ -30,7 +53,10 @@ export function EditProfileModal({ onClose }: Props) {
     setSaving(true);
     setError("");
 
-    const result = await authClient.updateUser({ name: trimmed });
+    const updates: { name: string; image?: string } = { name: trimmed };
+    if (avatarUrl !== (user?.image ?? "")) updates.image = avatarUrl || undefined;
+
+    const result = await authClient.updateUser(updates);
     if (result.error) {
       setError(result.error.message ?? "Failed to save");
       setSaving(false);
@@ -39,6 +65,7 @@ export function EditProfileModal({ onClose }: Props) {
     }
   }
 
+  const displayAvatar = avatarUrl || user?.image;
   const initials = (name.trim() || emailPrefix)
     .split(" ")
     .map((n) => n[0])
@@ -56,16 +83,49 @@ export function EditProfileModal({ onClose }: Props) {
 
         <form onSubmit={handleSubmit}>
           <div className="px-6 py-5 space-y-5">
-            {/* Avatar preview */}
+            {/* Avatar */}
             <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-full bg-brand-500 flex items-center justify-center text-white text-xl font-bold overflow-hidden flex-shrink-0">
-                {user?.image
-                  ? <img src={user.image} alt={name} className="w-full h-full object-cover" />
-                  : initials}
+              <div className="relative group w-16 h-16 flex-shrink-0">
+                <div className="w-16 h-16 rounded-full bg-brand-500 flex items-center justify-center text-white text-xl font-bold overflow-hidden">
+                  {displayAvatar
+                    ? <img src={displayAvatar} alt={name} className="w-full h-full object-cover" />
+                    : initials}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => avatarInputRef.current?.click()}
+                  disabled={avatarUploading}
+                  className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity disabled:cursor-wait"
+                >
+                  {avatarUploading
+                    ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    : <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                  }
+                </button>
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleAvatarChange}
+                />
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-700">Profile photo</p>
-                <p className="text-xs text-gray-400 mt-0.5">Photo upload coming soon</p>
+                <button
+                  type="button"
+                  onClick={() => avatarInputRef.current?.click()}
+                  disabled={avatarUploading}
+                  className="text-xs text-brand-500 hover:underline mt-0.5 disabled:opacity-50"
+                >
+                  {avatarUploading ? "Uploading…" : "Upload new photo"}
+                </button>
+                {avatarUrl && avatarUrl !== (user?.image ?? "") && (
+                  <p className="text-xs text-green-600 mt-0.5">New photo ready — save to apply</p>
+                )}
               </div>
             </div>
 
@@ -102,7 +162,7 @@ export function EditProfileModal({ onClose }: Props) {
             </button>
             <button
               type="submit"
-              disabled={saving || !name.trim()}
+              disabled={saving || avatarUploading || !name.trim()}
               className="flex-1 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
             >
               {saving ? "Saving…" : "Save changes"}
