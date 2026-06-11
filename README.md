@@ -162,8 +162,9 @@ server/       Fastify + tRPC + Socket.io + Drizzle
 - [x] File and image uploads
 - [x] Avatar uploads (file upload + in-browser camera capture)
 - [x] @mention notifications (autocomplete, in-app bell, real-time push)
+- [x] Real-time message delivery (no reload needed)
 - [ ] Full-text message search
-- [ ] Presence indicators
+- [x] Presence indicators (online/offline dots, real-time via Socket.io)
 - [ ] Mobile (iOS / Android) parity
 - [ ] Desktop (Electron) parity
 
