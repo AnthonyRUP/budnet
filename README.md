@@ -160,7 +160,7 @@ server/       Fastify + tRPC + Socket.io + Drizzle
 - [x] Emoji reactions
 - [ ] Message threads
 - [x] File and image uploads
-- [ ] Avatar uploads
+- [x] Avatar uploads (file upload + in-browser camera capture)
 - [ ] @mention notifications
 - [ ] Full-text message search
 - [ ] Presence indicators
