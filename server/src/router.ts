@@ -17,7 +17,7 @@ function groupReactions(reactions: { emoji: string; userId: string }[]) {
 import { TRPCError } from "@trpc/server";
 import { router, publicProcedure, protectedProcedure } from "./trpc";
 import { db, schema } from "./db";
-import { getIO } from "./socket";
+import { getIO, onlineUsers } from "./socket";
 
 const authRouter = router({
   me: protectedProcedure.query(async ({ ctx }) => {
@@ -584,6 +584,10 @@ const inviteRouter = router({
     }),
 });
 
+const presenceRouter = router({
+  online: protectedProcedure.query(() => Array.from(onlineUsers.keys())),
+});
+
 const notificationRouter = router({
   list: protectedProcedure
     .input(z.object({ limit: z.number().default(30) }))
@@ -635,6 +639,7 @@ export const appRouter = router({
   dm: dmRouter,
   invite: inviteRouter,
   notification: notificationRouter,
+  presence: presenceRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -2,12 +2,29 @@ import React, { useEffect } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { Sidebar } from "../components/Sidebar";
 import { trpc } from "@budnet/api";
-import { useWorkspaceStore } from "@budnet/store";
+import { useWorkspaceStore, usePresenceStore } from "@budnet/store";
+import { authClient } from "../lib/auth-client";
+import { connectSocket, disconnectSocket } from "../lib/socket-client";
 
 export function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { setActiveWorkspace, setChannels, activeWorkspace } = useWorkspaceStore();
+  const { updatePresence } = usePresenceStore();
+  const { data: session } = authClient.useSession();
+
+  // Connect Socket.io and subscribe to presence events
+  useEffect(() => {
+    const userId = session?.user.id;
+    if (!userId) return;
+    const socket = connectSocket(userId);
+    socket.on("presence:update", updatePresence);
+    return () => {
+      socket.off("presence:update", updatePresence);
+      disconnectSocket();
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user.id]);
 
   const { data: workspaces, isLoading: loadingWorkspaces } = trpc.workspace.list.useQuery();
   const initWorkspace = trpc.workspace.init.useMutation();

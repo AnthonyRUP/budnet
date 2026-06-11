@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { trpc } from "@budnet/api";
+import { PresenceDot } from "./PresenceDot";
 
 const QUICK_EMOJIS = ["👍", "👎", "❤️", "😂", "😮", "😢", "🎉", "🔥", "👀", "🙌", "💯", "🤔", "😅", "🥳", "🙏", "✅", "👏", "💪", "🤣", "😍", "⚡", "💡", "🎯", "💀"];
 
@@ -128,11 +129,14 @@ export function MessageItem({ message, currentUserId, onInvalidate }: Props) {
       onMouseEnter={() => setHovering(true)}
       onMouseLeave={() => setHovering(false)}
     >
-      {/* Avatar */}
-      <div className="w-9 h-9 rounded-full bg-brand-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 mt-0.5 overflow-hidden">
-        {message.authorImage
-          ? <img src={message.authorImage} alt={authorName} className="w-full h-full object-cover" />
-          : initials}
+      {/* Avatar + presence dot */}
+      <div className="relative flex-shrink-0 mt-0.5">
+        <div className="w-9 h-9 rounded-full bg-brand-500 flex items-center justify-center text-white text-xs font-bold overflow-hidden">
+          {message.authorImage
+            ? <img src={message.authorImage} alt={authorName} className="w-full h-full object-cover" />
+            : initials}
+        </div>
+        <PresenceDot userId={message.authorId} className="absolute -bottom-0.5 -right-0.5 w-3 h-3" />
       </div>
 
       {/* Content */}

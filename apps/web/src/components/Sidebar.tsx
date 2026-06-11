@@ -8,6 +8,7 @@ import { InviteModal } from "./InviteModal";
 import { EditProfileModal } from "./EditProfileModal";
 import { NewDmModal } from "./NewDmModal";
 import { NotificationBell } from "./NotificationBell";
+import { PresenceDot } from "./PresenceDot";
 
 function ProfileBar() {
   const { data: session } = authClient.useSession();
@@ -46,10 +47,13 @@ function ProfileBar() {
           onClick={() => setOpen((v) => !v)}
           className="w-full flex items-center gap-2.5 px-2 py-2 rounded-md hover:bg-white/10 transition-colors text-left"
         >
-          <div className="w-8 h-8 rounded-full bg-brand-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 overflow-hidden">
-            {user?.image
-              ? <img src={user.image} alt={displayName} className="w-full h-full object-cover" />
-              : initials}
+          <div className="relative flex-shrink-0">
+            <div className="w-8 h-8 rounded-full bg-brand-500 flex items-center justify-center text-white text-xs font-bold overflow-hidden">
+              {user?.image
+                ? <img src={user.image} alt={displayName} className="w-full h-full object-cover" />
+                : initials}
+            </div>
+            <PresenceDot userId={user?.id} className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5" />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-white truncate leading-tight">{displayName}</p>
@@ -145,10 +149,13 @@ function DmSection() {
             `flex items-center gap-2 px-2 py-1 rounded text-sm ${isActive ? "bg-white/20 text-white" : "text-white/70 hover:text-white hover:bg-white/10"}`
           }
         >
-          <div className="w-5 h-5 rounded-full bg-brand-500 flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0 overflow-hidden">
-            {dm.participants[0]?.image
-              ? <img src={dm.participants[0].image} alt="" className="w-full h-full object-cover" />
-              : dmInitials(dm)}
+          <div className="relative flex-shrink-0">
+            <div className="w-5 h-5 rounded-full bg-brand-500 flex items-center justify-center text-white text-[9px] font-bold overflow-hidden">
+              {dm.participants[0]?.image
+                ? <img src={dm.participants[0].image} alt="" className="w-full h-full object-cover" />
+                : dmInitials(dm)}
+            </div>
+            <PresenceDot userId={dm.participants[0]?.id} className="absolute -bottom-px -right-px w-2 h-2" />
           </div>
           <span className="truncate">{dmLabel(dm)}</span>
         </NavLink>
