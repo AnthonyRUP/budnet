@@ -129,8 +129,8 @@ export function MessageItem({ message, currentUserId, onInvalidate }: Props) {
       onMouseEnter={() => setHovering(true)}
       onMouseLeave={() => setHovering(false)}
     >
-      {/* Avatar + presence dot */}
-      <div className="relative flex-shrink-0 mt-0.5">
+      {/* Avatar + presence dot — self-start prevents stretching to full row height */}
+      <div className="relative flex-shrink-0 self-start mt-0.5">
         <div className="w-9 h-9 rounded-full bg-brand-500 flex items-center justify-center text-white text-xs font-bold overflow-hidden">
           {message.authorImage
             ? <img src={message.authorImage} alt={authorName} className="w-full h-full object-cover" />
