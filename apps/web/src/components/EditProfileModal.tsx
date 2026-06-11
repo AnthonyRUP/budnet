@@ -1,5 +1,90 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { authClient } from "../lib/auth-client";
+
+function CameraCapture({ onCapture, onClose }: { onCapture: (blob: Blob) => void; onClose: () => void }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [stream, setStream] = useState<MediaStream | null>(null);
+  const [error, setError] = useState("");
+  const [captured, setCaptured] = useState<string | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
+      .then((s) => {
+        setStream(s);
+        if (videoRef.current) videoRef.current.srcObject = s;
+      })
+      .catch(() => setError("Camera access denied. Please allow camera access in your browser."));
+
+    return () => {
+      // cleanup handled in the stream state effect below
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => { stream?.getTracks().forEach((t) => t.stop()); };
+  }, [stream]);
+
+  function handleCapture() {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas) return;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext("2d")!.drawImage(video, 0, 0);
+    setCaptured(canvas.toDataURL("image/jpeg", 0.92));
+  }
+
+  function handleRetake() { setCaptured(null); }
+
+  function handleUse() {
+    if (!captured || !canvasRef.current) return;
+    canvasRef.current.toBlob((blob) => { if (blob) onCapture(blob); }, "image/jpeg", 0.92);
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/70" onClick={onClose} />
+      <div className="relative bg-black rounded-2xl overflow-hidden shadow-2xl w-full max-w-sm mx-4">
+        {error ? (
+          <div className="p-8 text-center text-white">
+            <p className="text-sm">{error}</p>
+            <button onClick={onClose} className="mt-4 px-4 py-2 bg-white/20 rounded-lg text-sm">Close</button>
+          </div>
+        ) : (
+          <>
+            <div className="relative aspect-square bg-gray-900">
+              {!captured && (
+                <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+              )}
+              {captured && (
+                <img src={captured} alt="preview" className="w-full h-full object-cover" />
+              )}
+              {/* Circular crop guide */}
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="w-56 h-56 rounded-full border-2 border-white/60 shadow-[0_0_0_9999px_rgba(0,0,0,0.45)]" />
+              </div>
+            </div>
+            <canvas ref={canvasRef} className="hidden" />
+            <div className="flex gap-2 p-4">
+              {!captured ? (
+                <>
+                  <button onClick={onClose} className="flex-1 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-sm transition-colors">Cancel</button>
+                  <button onClick={handleCapture} className="flex-1 py-2.5 bg-white text-black rounded-xl text-sm font-semibold transition-colors hover:bg-gray-100">Take photo</button>
+                </>
+              ) : (
+                <>
+                  <button onClick={handleRetake} className="flex-1 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-sm transition-colors">Retake</button>
+                  <button onClick={handleUse} className="flex-1 py-2.5 bg-brand-500 hover:bg-brand-600 text-white rounded-xl text-sm font-semibold transition-colors">Use photo</button>
+                </>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
 
 interface Props {
   onClose: () => void;
@@ -13,6 +98,7 @@ export function EditProfileModal({ onClose }: Props) {
   const [name, setName] = useState(user?.name || emailPrefix);
   const [avatarUrl, setAvatarUrl] = useState(user?.image ?? "");
   const [avatarUploading, setAvatarUploading] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -26,14 +112,12 @@ export function EditProfileModal({ onClose }: Props) {
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const uploadBlob = useCallback(async (blob: Blob, filename = "avatar.jpg") => {
     setAvatarUploading(true);
     setError("");
     try {
       const formData = new FormData();
-      formData.append("file", file);
+      formData.append("file", blob, filename);
       const res = await fetch("/api/upload", { method: "POST", body: formData, credentials: "include" });
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json() as { url: string };
@@ -42,8 +126,19 @@ export function EditProfileModal({ onClose }: Props) {
       setError("Avatar upload failed");
     } finally {
       setAvatarUploading(false);
-      e.target.value = "";
     }
+  }, []);
+
+  async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await uploadBlob(file, file.name);
+    e.target.value = "";
+  }
+
+  async function handleCameraCapture(blob: Blob) {
+    setShowCamera(false);
+    await uploadBlob(blob, "avatar.jpg");
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -93,8 +188,9 @@ export function EditProfileModal({ onClose }: Props) {
                 </div>
                 <button
                   type="button"
-                  onClick={() => avatarInputRef.current?.click()}
+                  onClick={() => setShowCamera(true)}
                   disabled={avatarUploading}
+                  title="Take a photo with your camera"
                   className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity disabled:cursor-wait"
                 >
                   {avatarUploading
@@ -105,13 +201,7 @@ export function EditProfileModal({ onClose }: Props) {
                       </svg>
                   }
                 </button>
-                <input
-                  ref={avatarInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleAvatarChange}
-                />
+                <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-700">Profile photo</p>
@@ -170,6 +260,7 @@ export function EditProfileModal({ onClose }: Props) {
           </div>
         </form>
       </div>
+      {showCamera && <CameraCapture onCapture={handleCameraCapture} onClose={() => setShowCamera(false)} />}
     </div>
   );
 }
