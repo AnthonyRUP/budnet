@@ -1,12 +1,32 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { authClient } from "../lib/auth-client";
 
 type State = "idle" | "loading" | "sent" | "error";
+
+const isElectron = !!(window as unknown as { budnet?: { isElectron?: boolean } }).budnet?.isElectron;
 
 export function LoginView() {
   const [email, setEmail] = useState("");
   const [uiState, setUiState] = useState<State>("idle");
   const [error, setError] = useState("");
+
+  // In Electron: poll the dev endpoint for the magic link URL and navigate
+  // the Electron window to it directly so the session cookie is set here.
+  useEffect(() => {
+    if (!isElectron || uiState !== "sent") return;
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/dev/magic-link?email=${encodeURIComponent(email)}`);
+        if (res.ok) {
+          clearInterval(interval);
+          const { url } = await res.json() as { url: string };
+          window.location.href = url;
+        }
+      } catch { /* not yet available, keep polling */ }
+    }, 1000);
+    const timeout = setTimeout(() => clearInterval(interval), 120_000);
+    return () => { clearInterval(interval); clearTimeout(timeout); };
+  }, [uiState, email]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -35,10 +55,20 @@ export function LoginView() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
           </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Check your email</h2>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">
+            {isElectron ? "Signing you in…" : "Check your email"}
+          </h2>
           <p className="text-gray-500 text-sm mb-4">
-            We sent a magic link to <strong>{email}</strong>. Click it to sign in.
+            {isElectron
+              ? <>Magic link sent to <strong>{email}</strong>. Signing you in automatically…</>
+              : <>We sent a magic link to <strong>{email}</strong>. Click it to sign in.</>
+            }
           </p>
+          {isElectron && (
+            <div className="flex justify-center mb-2">
+              <div className="w-5 h-5 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+            </div>
+          )}
           <button
             onClick={() => setUiState("idle")}
             className="text-sm text-brand-500 hover:underline"

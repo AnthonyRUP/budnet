@@ -10,7 +10,7 @@ import { randomUUID } from "crypto";
 import { fromNodeHeaders } from "better-auth/node";
 import { appRouter } from "./router";
 import { createContext } from "./trpc";
-import { auth } from "./auth";
+import { auth, devMagicLinks } from "./auth";
 import { initSocketIO } from "./socket";
 
 const fastify = Fastify({ logger: true });
@@ -51,6 +51,18 @@ await fastify.register(async function uploadPlugin(app: FastifyInstance) {
       size: buffer.length,
     };
   });
+});
+
+// Dev-only: Electron polls this to get the magic link URL so it can
+// navigate its own window to the verify URL instead of opening a browser.
+fastify.get("/api/dev/magic-link", async (request, reply) => {
+  if (process.env.NODE_ENV === "production") return reply.status(404).send();
+  const { email } = request.query as { email?: string };
+  if (!email) return reply.status(400).send({ error: "email required" });
+  const entry = devMagicLinks.get(email);
+  if (!entry || Date.now() - entry.ts > 120_000) return reply.status(404).send({ error: "not found" });
+  devMagicLinks.delete(email); // one-time use
+  return { url: entry.url };
 });
 
 // Serve uploaded files
