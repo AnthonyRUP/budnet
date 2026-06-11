@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { eq, and, desc, lt, ne, inArray, getTableColumns } from "drizzle-orm";
+import { eq, and, desc, lt, ne, inArray, getTableColumns, count } from "drizzle-orm";
 
 function groupReactions(reactions: { emoji: string; userId: string }[]) {
   const map = new Map<string, string[]>();
@@ -260,6 +260,7 @@ const messageRouter = router({
         mimeType: z.string(),
         size: z.number(),
       })).default([]),
+      mentionedUserIds: z.array(z.string()).default([]),
     }))
     .mutation(async ({ ctx, input }) => {
       if (!input.content.trim() && !input.attachments.length) {
@@ -268,11 +269,7 @@ const messageRouter = router({
 
       const [message] = await db
         .insert(schema.messages)
-        .values({
-          channelId: input.channelId,
-          authorId: ctx.userId,
-          content: input.content,
-        })
+        .values({ channelId: input.channelId, authorId: ctx.userId, content: input.content })
         .returning();
 
       const savedAttachments = input.attachments.length
@@ -280,6 +277,23 @@ const messageRouter = router({
             input.attachments.map((a) => ({ messageId: message.id, ...a }))
           ).returning()
         : [];
+
+      // Create notifications for each mentioned user (excluding self-mentions)
+      const toNotify = [...new Set(input.mentionedUserIds)].filter((uid) => uid !== ctx.userId);
+      if (toNotify.length) {
+        await db.insert(schema.notifications).values(
+          toNotify.map((userId) => ({
+            userId,
+            messageId: message.id,
+            channelId: input.channelId,
+            mentionedBy: ctx.userId,
+          }))
+        );
+        // Emit to each user's personal room
+        toNotify.forEach((userId) => {
+          getIO()?.to(`user:${userId}`).emit("notification:new", { channelId: input.channelId });
+        });
+      }
 
       getIO()?.to(`channel:${input.channelId}`).emit("message:new", {
         ...message,
@@ -570,6 +584,49 @@ const inviteRouter = router({
     }),
 });
 
+const notificationRouter = router({
+  list: protectedProcedure
+    .input(z.object({ limit: z.number().default(30) }))
+    .query(async ({ ctx, input }) => {
+      return db
+        .select({
+          id: schema.notifications.id,
+          read: schema.notifications.read,
+          createdAt: schema.notifications.createdAt,
+          channelId: schema.notifications.channelId,
+          channelName: schema.channels.name,
+          messageContent: schema.messages.content,
+          senderName: schema.baUser.name,
+          senderEmail: schema.baUser.email,
+          senderImage: schema.baUser.image,
+        })
+        .from(schema.notifications)
+        .leftJoin(schema.channels, eq(schema.channels.id, schema.notifications.channelId))
+        .leftJoin(schema.messages, eq(schema.messages.id, schema.notifications.messageId))
+        .leftJoin(schema.baUser, eq(schema.baUser.id, schema.notifications.mentionedBy))
+        .where(eq(schema.notifications.userId, ctx.userId))
+        .orderBy(desc(schema.notifications.createdAt))
+        .limit(input.limit);
+    }),
+
+  unreadCount: protectedProcedure.query(async ({ ctx }) => {
+    const [result] = await db
+      .select({ value: count() })
+      .from(schema.notifications)
+      .where(and(eq(schema.notifications.userId, ctx.userId), eq(schema.notifications.read, false)));
+    return result?.value ?? 0;
+  }),
+
+  markRead: protectedProcedure
+    .input(z.object({ notificationId: z.string().optional() }))
+    .mutation(async ({ ctx, input }) => {
+      const where = input.notificationId
+        ? and(eq(schema.notifications.id, input.notificationId), eq(schema.notifications.userId, ctx.userId))
+        : eq(schema.notifications.userId, ctx.userId);
+      await db.update(schema.notifications).set({ read: true }).where(where);
+    }),
+});
+
 export const appRouter = router({
   auth: authRouter,
   workspace: workspaceRouter,
@@ -577,6 +634,7 @@ export const appRouter = router({
   message: messageRouter,
   dm: dmRouter,
   invite: inviteRouter,
+  notification: notificationRouter,
 });
 
 export type AppRouter = typeof appRouter;

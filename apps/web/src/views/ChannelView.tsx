@@ -187,9 +187,13 @@ export function ChannelView() {
     },
   });
 
-  function handleSend(content: string, attachments: { url: string; filename: string; mimeType: string; size: number }[]) {
+  function handleSend(
+    content: string,
+    attachments: { url: string; filename: string; mimeType: string; size: number }[],
+    mentionedUserIds: string[],
+  ) {
     if (!channelId) return;
-    send.mutate({ channelId, content, attachments });
+    send.mutate({ channelId, content, attachments, mentionedUserIds });
   }
 
   return (

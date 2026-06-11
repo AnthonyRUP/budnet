@@ -62,6 +62,7 @@ export interface ServerToClientEvents {
   "message:updated": (message: Message) => void;
   "message:deleted": (messageId: string) => void;
   "message:reaction": (data: { messageId: string; reactions: Reaction[] }) => void;
+  "notification:new": (data: { channelId: string }) => void;
   "channel:typing": (data: { channelId: string; userId: string; username: string }) => void;
   "presence:update": (presence: PresenceStatus) => void;
 }

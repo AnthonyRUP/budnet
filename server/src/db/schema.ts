@@ -114,6 +114,17 @@ export const attachments = pgTable("attachments", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const notifications = pgTable("notifications", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id").notNull().references(() => baUser.id, { onDelete: "cascade" }),
+  type: text("type").notNull().default("mention"),
+  messageId: uuid("message_id").references(() => messages.id, { onDelete: "cascade" }),
+  channelId: uuid("channel_id").notNull().references(() => channels.id, { onDelete: "cascade" }),
+  mentionedBy: text("mentioned_by").notNull().references(() => baUser.id, { onDelete: "cascade" }),
+  read: boolean("read").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const messageReactions = pgTable("message_reactions", {
   messageId: uuid("message_id").notNull().references(() => messages.id, { onDelete: "cascade" }),
   userId: text("user_id").notNull().references(() => baUser.id, { onDelete: "cascade" }),

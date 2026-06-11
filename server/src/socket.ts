@@ -10,13 +10,17 @@ export function initSocketIO(httpServer: HttpServer, corsOrigin: string) {
   });
 
   io.on("connection", (socket) => {
+    // Join personal room for notifications
+    const userId = (socket.handshake.auth as { userId?: string }).userId;
+    if (userId) socket.join(`user:${userId}`);
+
     socket.on("channel:join", (channelId) => socket.join(`channel:${channelId}`));
     socket.on("channel:leave", (channelId) => socket.leave(`channel:${channelId}`));
     socket.on("channel:typing", (channelId) => {
-      const userId = (socket.handshake.auth as { userId?: string }).userId ?? "";
+      const uid = (socket.handshake.auth as { userId?: string }).userId ?? "";
       socket.to(`channel:${channelId}`).emit("channel:typing", {
         channelId,
-        userId,
+        userId: uid,
         username: "",
       });
     });
